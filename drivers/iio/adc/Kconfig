@@ -58,6 +58,12 @@ config AD7476
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad7476.
 
+config AD7490
+	tristate "Analog Devices 12-bit 16-channel ADC driver"
+	depends on SPI
+	help
+	  If this works its a miracle
+
 config AD7766
 	tristate "Analog Devices AD7766/AD7767 ADC driver"
 	depends on SPI_MASTER
