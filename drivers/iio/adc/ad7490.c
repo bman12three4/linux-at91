@@ -15,7 +15,6 @@
 
 struct ad7490_adc_chip {
 	struct mutex lock;
-	struct regulator *vref;
 	struct iio_dev *indio_dev;
 	struct spi_device *spi;
 	u16 ctrl;
@@ -87,6 +86,25 @@ static int ad7490_spi_read_channel(struct ad7490_adc_chip *ad7490_adc, int* val,
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
 }
 
+static const struct iio_chan_spec ad7490_adc_channels[] = {
+	AD7490_ADC_CHANNEL(0),
+	AD7490_ADC_CHANNEL(1),
+	AD7490_ADC_CHANNEL(2),
+	AD7490_ADC_CHANNEL(3),
+	AD7490_ADC_CHANNEL(4),
+	AD7490_ADC_CHANNEL(5),
+	AD7490_ADC_CHANNEL(6),
+	AD7490_ADC_CHANNEL(7),
+	AD7490_ADC_CHANNEL(8),
+	AD7490_ADC_CHANNEL(9),
+	AD7490_ADC_CHANNEL(10),
+	AD7490_ADC_CHANNEL(11),
+	AD7490_ADC_CHANNEL(12),
+	AD7490_ADC_CHANNEL(13),
+	AD7490_ADC_CHANNEL(14),
+	AD7490_ADC_CHANNEL(15),
+};
+
 static int ad7490_spi_read_raw(struct iio_dev *indio_dev,
 				struct iio_chan_spec const *chan,
 				int *val, int *val2, long mask)
@@ -133,11 +151,26 @@ static const struct iio_info ad7490_spi_info = {
 	.debugfs_reg_access = ad7490_spi_reg_access,
 };
 
+static int ad7490_spi_init(struct ad7490_adc_chip *ad7490_adc)
+{
+	int ret;
+
+	ad7490_adc->current_channel = 0;
+	ad7490_spi_write_ctrl(ad7490_adc, 0xffff, AD7490_MASK_TOTAL);
+	ad7490_spi_write_ctrl(ad7490_adc, 0xffff, AD7490_MASK_TOTAL);
+
+	// Normal power mode, sequencer off, double range, straight binary
+	ret = ad7490_spi_write_ctrl(ad7490_adc, 0x0831, AD7490_MASK_TOTAL);
+
+	return ret;
+}
+
 int ad7490_spi_probe(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
 	struct ad7490_adc_chip *ad7490_adc;
 	struct iio_dev *indio_dev;
+	int ret;
 
 	spi->bits_per_word = 12;
 
@@ -152,16 +185,48 @@ int ad7490_spi_probe(struct spi_device *spi)
 	indio_dev->info = &ad7490_spi_info;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = ad7490_adc_channels;
+	spi_set_drvdata(spi, indio_dev);
+
+	ad7490_adc = iio_priv(indio_dev);
+	ad7490_adc->indio_dev = indio_dev;
+	ad7490_adc->spi = spi;
+	indio_dev->num_channels = 16;
+
+	mutex_init(&ad7490_adc->lock);
+
+	ret = ad7490_spi_init(ad7490_adc);
+	if (ret) {
+		dev_err(dev, "unable to init this device: %d\n", ret);
+		mutex_destroy(&ad7490_adc->lock);
+		return ret;
+	}
+
+	ret = iio_device_register(indio_dev);
+	if (ret) {
+		dev_err(dev, "failed to register this device: %d\n", ret);
+		mutex_destroy(&ad7490_adc->lock);
+		return ret;
+	}
+
+	return 0;
+	
 }
 
 int ad7490_spi_remove(struct spi_device *spi)
 {
+	struct iio_dev *indio_dev = spi_get_drvdata(spi);
+	struct ad7490_adc_chip *ad7490_adc = iio_priv(indio_dev);
 
+	iio_device_unregister(indio_dev);
+	mutex_destroy(&ad7490_adc->lock);
+
+	return 0;
 }
 
 void ad7490_spi_shutdown(struct spi_device *spi)
 {
-
+	printk(KERN_ALERT "in function %s", __FUNCTION__);
 }
 
 static const struct of_device_id ad7490_of_id[] = {
