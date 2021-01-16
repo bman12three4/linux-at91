@@ -59,7 +59,7 @@ config AD7476
 	  module will be called ad7476.
 
 config AD7490
-	tristate "Analog Devices 12-bit 16-channel ADC driver"
+	tristate "Analog Devices AD7490 ADC driver"
 	depends on SPI
 	help
 	  If this works its a miracle
