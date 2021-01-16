@@ -40,7 +40,7 @@ static int ad7490_spi_write_ctrl(struct ad7490_adc_chip *ad7490_adc, u16 val,
 	spi_message_init_with_transfers(&msg, tx, 1);
 	ret = spi_sync(ad7490_adc->spi, &msg);
 
-
+	return ret;
 }
 
 static int ad7490_spi_read_channel(struct ad7490_adc_chip *ad7490_adc, int* val,
@@ -56,7 +56,7 @@ static int ad7490_spi_read_channel(struct ad7490_adc_chip *ad7490_adc, int* val,
 		},
 	};
 
-	ret = ret = ad7490_spi_write_ctrl(ad7490_adc,
+	ret = ad7490_spi_write_ctrl(ad7490_adc,
 					channel << AD7490_CHANNEL_OFFSET,
 					AD7490_MASK_CHANNEL_SEL);
 
@@ -101,19 +101,11 @@ static int ad7490_spi_read_raw(struct iio_dev *indio_dev,
 	case (IIO_CHAN_INFO_RAW):
 		mutex_lock(&ad7490_adc->lock);
 		ret = ad7490_spi_read_channel(ad7490_adc, val, chan->channel);
-		mutex_unlock(&ad7490_adc->lock)
+		mutex_unlock(&ad7490_adc->lock);
 
 		if (ret < 0)
 			return ret;
 
-		return IIO_VAL_INT;
-
-	case IIO_CHAN_INFO_SCALE:
-		ret = regulator_get_voltage(ad7490_adc->vref);
-		if (ret < 0)
-			return = ret;
-		
-		*val = ret / 5000;	//TODO: make this the right value
 		return IIO_VAL_INT;
 	}
 
@@ -160,7 +152,6 @@ int ad7490_spi_probe(struct spi_device *spi)
 	indio_dev->info = &ad7490_spi_info;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = 
 }
 
 int ad7490_spi_remove(struct spi_device *spi)
@@ -173,13 +164,13 @@ void ad7490_spi_shutdown(struct spi_device *spi)
 
 }
 
-static const struct of_device_id ad7490_of_id[] {
-	{ .compatable = "adi,ad7490" },
+static const struct of_device_id ad7490_of_id[] = {
+	{ .compatible = "adi,ad7490" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, ad7490_of_id);
 
-static const struct spi_device_id ad7490_spi_id[] {
+static const struct spi_device_id ad7490_spi_id[] = {
 	{ "ad7490", 0 },
 	{}
 };
