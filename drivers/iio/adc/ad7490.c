@@ -34,6 +34,9 @@ static int ad7490_spi_write_ctrl(struct ad7490_adc_chip *ad7490_adc, u16 val,
 		},
 	};
 
+	printk(KERN_INFO "ad7490: Writing to ad7490: %x\n", val);
+	printk(KERN_INFO "ad7490: Current control word: %x\n", ad7490_adc->ctrl);
+
 	ad7490_adc->ctrl = (val & mask) | (ad7490_adc->ctrl & ~mask);
 	ad7490_adc->buffer = ad7490_adc->ctrl;
 	spi_message_init_with_transfers(&msg, tx, 1);
@@ -48,8 +51,9 @@ static int ad7490_spi_read_channel(struct ad7490_adc_chip *ad7490_adc, int* val,
 	int ret;
 	int mask = GENMASK(12, 0);
 	struct spi_message msg;
-	struct spi_transfer rx[] = {
+	struct spi_transfer xfer[] = {
 		{
+			.tx_buf = &ad7490_adc->ctrl,
 			.rx_buf = &ad7490_adc->buffer,
 			.len = 4,
 		},
@@ -59,14 +63,18 @@ static int ad7490_spi_read_channel(struct ad7490_adc_chip *ad7490_adc, int* val,
 					channel << AD7490_CHANNEL_OFFSET,
 					AD7490_MASK_CHANNEL_SEL);
 
-	if (ret)
+	if (ret) {
+		printk(KERN_INFO "ad7490: Failed to write control word %d\n", ret);
 		return ret;
+	}
 
 	ad7490_adc->buffer = 0;
-	spi_message_init_with_transfers(&msg, rx, 1);
+	spi_message_init_with_transfers(&msg, xfer, 1);
 	ret = spi_sync(ad7490_adc->spi, &msg);
-	if (ret)
+	if (ret) {
+		printk(KERN_INFO "ad7490: SPI Data transfer error %d\n", ret);
 		return ret;
+	}
 
 	ndelay(50);
 
@@ -121,8 +129,10 @@ static int ad7490_spi_read_raw(struct iio_dev *indio_dev,
 		ret = ad7490_spi_read_channel(ad7490_adc, val, chan->channel);
 		mutex_unlock(&ad7490_adc->lock);
 
-		if (ret < 0)
+		if (ret < 0){
+			printk(KERN_INFO "ad7490: Error reading from channel %d\n", ret);
 			return ret;
+		}
 
 		return IIO_VAL_INT;
 	}
@@ -245,7 +255,7 @@ static struct spi_driver ad7490_spi_driver = {
 	.id_table = ad7490_spi_id,
 	.probe    = ad7490_spi_probe,
 	.remove   = ad7490_spi_remove,
-	.shutdown = ad7490_spi_shutdown,
+	//.shutdown = ad7490_spi_shutdown,
 	.driver   = {
 		.name 		= "ad7490",
 		.of_match_table = ad7490_of_id,
