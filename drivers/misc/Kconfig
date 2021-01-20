@@ -495,11 +495,6 @@ config DUMMY_CODE
 	help
 	  This module is just for demonstration purposes.
 
-config CHRDEV
-	tristate "chrdev"
-	default n
-	help
-	  chrdev from ldddc
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
