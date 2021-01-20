@@ -3,6 +3,12 @@
 #
 menu "Analog to digital converters"
 
+config AD7490
+	tristate "Analog Devices AD7490 ADC driver"
+	depends on SPI
+	help
+	  If this works its a miracle
+
 config AD7606
 	tristate "Analog Devices AD7606 ADC driver"
 	depends on GPIOLIB || COMPILE_TEST
