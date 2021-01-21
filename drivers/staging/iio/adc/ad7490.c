@@ -2,8 +2,9 @@
 #include <linux/module.h>
 #include <linux/iio/iio.h>
 
-struct ad7490_data {
+struct ad7490_adc_data {
 	struct spi_device *spi;
+	struct mutex lock;
 };
 
 #define AD7490_ADC_CHANNEL(chan) {				\
@@ -37,7 +38,17 @@ static int ad7490_read_raw(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *chan,
 			int *val, int *val2, long mask)
 {
-	
+	struct ad7490_adc_data *ad7490_adc = iio_priv(indio_dev);
+	int ret;
+
+	if (!val)
+		return -EINVAL;
+
+	//mutex_lock(&ad7490_adc->lock);
+	*val = 1024;	// just a placeholder
+	//mutex_unlock(&ad7490_adc->lock);
+
+	return IIO_VAL_INT;
 }
 
 static const struct iio_info ad7490_info = {
@@ -46,16 +57,16 @@ static const struct iio_info ad7490_info = {
 
 static int ad7490_spi_probe(struct spi_device *spi)
 {
-	struct ad7490_data *data;
+	struct ad7490_adc_data *ad7490_adc;
 	struct iio_dev *indio_dev;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*data));
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*ad7490_adc));
 	if (!indio_dev)
 		return -ENOMEM;
 
-	data = iio_priv(indio_dev);
+	ad7490_adc = iio_priv(indio_dev);
 	spi_set_drvdata(spi, indio_dev);
-	data->spi = spi;
+	ad7490_adc->spi = spi;
 
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->info = &ad7490_info;
@@ -63,6 +74,8 @@ static int ad7490_spi_probe(struct spi_device *spi)
 	indio_dev->channels = ad7490_channels;
 	indio_dev->num_channels = 16;
 	indio_dev->modes = INDIO_DIRECT_MODE;
+
+	mutex_init(&ad7490_adc->lock);
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
