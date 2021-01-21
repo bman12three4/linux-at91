@@ -7,6 +7,20 @@ struct ad7490_adc_data {
 	struct mutex lock;
 };
 
+static int ad7490_spi_read_channel(struct ad7490_adc_data *ad7490_adc, int* val,
+				unsigned int channel)
+{
+		int tx = 0x4141;
+
+		struct spi_transfer	t = {
+			.rx_buf		= val,
+			.tx_buf		= &tx,
+			.len		= 16,
+		};
+
+		return spi_sync_transfer(ad7490_adc->spi, &t, 1);
+}
+
 #define AD7490_ADC_CHANNEL(chan) {				\
 	.type = IIO_VOLTAGE,					\
 	.indexed = 1,						\
@@ -44,11 +58,23 @@ static int ad7490_read_raw(struct iio_dev *indio_dev,
 	if (!val)
 		return -EINVAL;
 
-	//mutex_lock(&ad7490_adc->lock);
-	*val = 1024;	// just a placeholder
-	//mutex_unlock(&ad7490_adc->lock);
+	switch (mask){
+	case (IIO_CHAN_INFO_RAW):
+		mutex_lock(&ad7490_adc->lock);
+		ret = ad7490_spi_read_channel(ad7490_adc, val, chan->channel);
+		mutex_unlock(&ad7490_adc->lock);
 
-	return IIO_VAL_INT;
+		if (ret < 0)
+			printk(KERN_INFO "AD7490 SPI Read error\n");
+
+		return IIO_VAL_INT;
+
+	case (IIO_CHAN_INFO_SCALE):
+		*val = 2048;
+		return IIO_VAL_INT;
+	}
+
+	return -EINVAL;
 }
 
 static const struct iio_info ad7490_info = {
