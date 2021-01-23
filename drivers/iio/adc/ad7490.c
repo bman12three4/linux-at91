@@ -44,6 +44,9 @@ static int ad7490_spi_read_channel(struct ad7490_adc_data *ad7490_adc, int *val,
 
 	ret = spi_sync_transfer(ad7490_adc->spi, &rx, 1);
 
+	printk(KERN_INFO "AD7490: Read channel %d", *val & (int) GENMASK(15, 12));
+	*val &= GENMASK(11, 0);
+
 	if (ret < 0)
 		printk(KERN_INFO "AD7490: Failed to read value");
 
