@@ -2,25 +2,29 @@
 #include <linux/module.h>
 #include <linux/iio/iio.h>
 
-#define AD7490_MASK_CHANNEL_SEL		GENMASK(9, 6)
-#define AD7490_CHANNEL_OFFSET		6
-#define AD7490_MASK_TOTAL		GENMASK(11, 0)
+#define AD7490_MASK_CHANNEL_SEL		GENMASK(13, 10)
+#define AD7490_CHANNEL_OFFSET		10
+#define AD7490_MASK_TOTAL		GENMASK(15, 0)
 
 
 struct ad7490_adc_data {
 	struct spi_device *spi;
 	struct mutex lock;
-	int ctrl;
+	u16 ctrl;
 };
 
 static int ad7490_spi_write_control(struct ad7490_adc_data *ad7490_adc, int val, long mask)
 {
+	u16 ctrl_reverse;
+
 	struct spi_transfer tx = {
-		.tx_buf	= &ad7490_adc->ctrl,
-		.len = 16,
+		.tx_buf	= &ctrl_reverse,
+		.len = 2,
 	};
 
-	ad7490_adc->ctrl = (ad7490_adc->ctrl & ~mask) | (val & mask);
+	ad7490_adc->ctrl = ((ad7490_adc->ctrl & ~mask) | (val & mask));
+	ctrl_reverse = ((ad7490_adc->ctrl & 0xff) << 8) | (ad7490_adc->ctrl >> 8);
+	printk(KERN_INFO "AD7490 Control: %x", ad7490_adc->ctrl);
 
 	return spi_sync_transfer(ad7490_adc->spi, &tx, 1);
 }
@@ -32,7 +36,7 @@ static int ad7490_spi_read_channel(struct ad7490_adc_data *ad7490_adc, int *val,
 	struct spi_transfer rx = {
 		.rx_buf		= val,
 		.tx_buf		= &ad7490_adc->ctrl,
-		.len		= 16,
+		.len		= 2,
 	};
 
 	ret = ad7490_spi_write_control(ad7490_adc, channel << AD7490_CHANNEL_OFFSET, AD7490_MASK_CHANNEL_SEL);
@@ -41,7 +45,7 @@ static int ad7490_spi_read_channel(struct ad7490_adc_data *ad7490_adc, int *val,
 		printk(KERN_INFO "AD7490: Failed to write control word");
 		return ret;
 	}
-
+	/*
 	ret = spi_sync_transfer(ad7490_adc->spi, &rx, 1);
 
 	printk(KERN_INFO "AD7490: Read channel %d", *val & (int) GENMASK(15, 12));
@@ -49,7 +53,7 @@ static int ad7490_spi_read_channel(struct ad7490_adc_data *ad7490_adc, int *val,
 
 	if (ret < 0)
 		printk(KERN_INFO "AD7490: Failed to read value");
-
+	*/
 	return ret;
 
 }
@@ -119,6 +123,8 @@ static int ad7490_spi_probe(struct spi_device *spi)
 	struct ad7490_adc_data *ad7490_adc;
 	struct iio_dev *indio_dev;
 
+	printk(KERN_INFO "ad7490 probe");
+
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*ad7490_adc));
 	if (!indio_dev)
 		return -ENOMEM;
@@ -126,6 +132,8 @@ static int ad7490_spi_probe(struct spi_device *spi)
 	ad7490_adc = iio_priv(indio_dev);
 	spi_set_drvdata(spi, indio_dev);
 	ad7490_adc->spi = spi;
+
+	//ad7490_adc->spi->bits_per_word = 16;
 
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->info = &ad7490_info;
@@ -138,7 +146,7 @@ static int ad7490_spi_probe(struct spi_device *spi)
 
 	//sequencer disabled, normal power mode, tristate dout, straight binary
 	mutex_lock(&ad7490_adc->lock);
-	ad7490_spi_write_control(ad7490_adc, 0x831, AD7490_MASK_TOTAL);
+	ad7490_spi_write_control(ad7490_adc, 0x8310, AD7490_MASK_TOTAL);
 	mutex_unlock(&ad7490_adc->lock);
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
