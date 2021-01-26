@@ -146,6 +146,8 @@ static int ad7490_spi_probe(struct spi_device *spi)
 
 	//sequencer disabled, normal power mode, tristate dout, straight binary
 	mutex_lock(&ad7490_adc->lock);
+	ad7490_spi_write_control(ad7490_adc, 0xffff, AD7490_MASK_TOTAL);
+	ad7490_spi_write_control(ad7490_adc, 0xffff, AD7490_MASK_TOTAL);
 	ad7490_spi_write_control(ad7490_adc, 0x8310, AD7490_MASK_TOTAL);
 	mutex_unlock(&ad7490_adc->lock);
 
